@@ -796,7 +796,7 @@ function Test-Log {
 }
 
 function Add-FinishLine {
-	write-BISFlog -Msg "------- FINISH SCRIPT -------"
+	Write-BISFLog -Msg "=========================== FINISH SCRIPT ==========================="
 }
 
 Function Get-SoftwareInfo {
@@ -1538,7 +1538,8 @@ function Get-DiskMode {
 		15.08.2017 MS: get additional DiskMode with AppLayering back, like ReadWriteAppLayering, ReadOnlyAppLayering
 		29.10.2017 MS: get VDA back instead of MCS
 		13.08.2019 AS: ENH 46 - Make any PVS conversion work Optional
-		20.09.2019 MS: ENH 136 - detect PVS Private Image with Asynchronous IO
+		20.09.2019 MS: ENH 136 - detect PVS Private Image with Asynchronous IO ($WriteCacheMode -eq "10")
+		23.12.2019 MS: HF 46: moving AndSkipImaging into finally block
 		.LINK
 		https://eucweb.com
 #>
@@ -1568,10 +1569,13 @@ function Get-DiskMode {
 		else {
 			$returnValue = "Unmanaged"
 			IF ($LIC_BISF_CLI_P2V_PT -eq "1") { $returnValue = $ReturnValue + "UNC-Path" }
-			IF ($LIC_BISF_CLI_P2V_SKIP_IMG -eq "1") { $returnValue = $ReturnValue + "AndSkipImaging" }
+
 		}
 	}
-	Finally { $ErrorActionPreference = "Continue" }
+	Finally {
+		$ErrorActionPreference = "Continue"
+		IF ($LIC_BISF_CLI_P2V_SKIP_IMG -eq "1") { $returnValue = $ReturnValue + "AndSkipImaging" }
+	}
 	IF ($CTXAppLayeringSW -eq $true) { $ReturnValue = $ReturnValue + "AppLayering" }
 	write-BISFlog -Msg "DiskMode is $($ReturnValue)"
 	return $returnValue
@@ -2726,6 +2730,7 @@ function Move-EvtLogs {
 		11.11.2017 MS: Bugfix, show the right Eventlog during move to the WCD
 		14.08.2019 MS: ENH 108 - set NTFS Rights for Eventlog directory
 		03.10.2019 MS: EHN 126 - added MCSIO redirection
+		27.12.2019 MS/MN: HF 161 - Quotation marks are different 
 
 	.FUNCTIONALITY
 		Enable all Eventlog and move Eventlogs to the PVS WriteCacheDisk if Redirection is enabled function Use-BISFPVSConfig
@@ -2763,7 +2768,7 @@ function Move-EvtLogs {
 			#$Error.ErrorRecord
 			#$Error.Errors
 			$x = $_.Exception.Message
-			Write-BISFLog -Msg “Error:`t`t $x" -Type W
+			Write-BISFLog -Msg "Error:`t`t $x" -Type W
 
 			#Exit
 		}
@@ -2778,7 +2783,7 @@ function Move-EvtLogs {
 
 	foreach ($logitem in $appvlogs) {
 		$x = $logitem.LogName
-		Write-BISFLog -Msg “Log enabled: $x"
+		Write-BISFLog -Msg "Log enabled: $x"
 		#     $logitem.IsEnabled = $true
 		$LogfilePath = "$LIC_BISF_EvtPath\" + $logitem.logName + ".evtx"
 		$Logfilepath = $LogFilePath.Replace("/", "")
@@ -2794,7 +2799,7 @@ function Move-EvtLogs {
 			#$Error.ErrorRecord
 			#$Error.Errors
 			$x = $_.Exception.Message
-			Write-BISFLog -Msg “Error:`t`t $x" -Type W
+			Write-BISFLog -Msg "Error:`t`t $x" -Type W
 
 			#Exit
 		}
@@ -2808,7 +2813,7 @@ function Move-EvtLogs {
 
 	foreach ($logitem in $appvlogs) {
 		$x = $logitem.LogName
-		Write-BISFLog -Msg “Log enabled: $x"
+		Write-BISFLog -Msg "Log enabled: $x"
 		$logitem.IsEnabled = $false
 		$LogfilePath = "$LIC_BISF_EvtPath\" + $logitem.logName + ".evtx"
 		$Logfilepath = $LogFilePath.Replace("/", "")
@@ -2824,7 +2829,7 @@ function Move-EvtLogs {
 			#$Error.ErrorRecord
 			#$Error.Errors
 			$x = $_.Exception.Message
-			Write-BISFLog -Msg “Error:`t`t $x" -Type W
+			Write-BISFLog -Msg "Error:`t`t $x" -Type W
 
 			#Exit
 		}
@@ -2837,7 +2842,7 @@ function Move-EvtLogs {
 
 	foreach ($logitem in $appvlogs) {
 		$x = $logitem.LogName
-		Write-BISFLog -Msg “Log enabled: $x"
+		Write-BISFLog -Msg "Log enabled: $x"
 		$LogfilePath = "$LIC_BISF_EvtPath\" + $logitem.logName + ".evtx"
 		$Logfilepath = $LogFilePath.Replace("/", "")
 
@@ -3243,15 +3248,21 @@ function Remove-FolderAndContents {
 
 		History:
 	  	22.08.2017 MS: function created
+		27.12.2019 NM: HF 159 - added begin section
 
 	.LINK
 		https://eucweb.com
 	  # http://stackoverflow.com/a/9012108
 #>
-	Write-BISFFunctionName2Log -FunctionName ($MyInvocation.MyCommand | ForEach-Object { $_.Name })  #must be added at the begin to each function
 	param(
 		[Parameter(Mandatory = $true, Position = 1)] [string] $folder_path
 	)
+	
+	Begin {
+            Write-BISFFunctionName2Log -FunctionName ($MyInvocation.MyCommand | ForEach-Object { $_.Name })  #must be added at the begin to each function
+            Write-BISFlog -Msg "Delete files and subfolders from folder $($folder_path)"
+      } #close Begin
+
 
 	process {
 		$child_items = ([array] (Get-ChildItem -Path $folder_path -Recurse -Force))
@@ -3259,7 +3270,7 @@ function Remove-FolderAndContents {
 			$null = $child_items | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue -Confirm:$False
 		}
 		$null = Remove-Item $folder_path -Force -Recurse -Confirm:$False -ErrorAction SilentlyContinue
-	}
+	} #close process
 }
 
 function Start-CDS {
@@ -4055,6 +4066,7 @@ Function Get-Space {
 		History:
 		  03.10.2019 MS: function created
 		  03.10.2019 MS: required for ENH 28 - Check if there's enough disk space on P2V Custom UNC-Path
+		  27.12.2019 MS/MN: HF 160 - Calculation of free space for the VHDX file using [math]::round and PS-Drive
 
 	.LINK
 		https://eucweb.com
@@ -4070,26 +4082,24 @@ Function Get-Space {
 		$localSpace = Get-WmiObject Win32_Volume -Filter 'DriveLetter="C:"'| select Capacity,FreeSpace
 
 		IF ($FreeSpace) {
-			$space = "{0:N2}" -f  (($localSpace.FreeSpace) / 1GB)
+			[int]$space = [math]::Round((($localSpace.FreeSpace) / 1GB))
 			Write-Log -Msg "Free space for $path is $space GB"
 		} ELSE {
 			$usedspace = $localSpace.Capacity - $localSpace.FreeSpace
-			$space = "{0:N2}" -f ($usedspace / 1GB)
+			[int]$space = [math]::Round(($usedspace / 1GB))
 			Write-Log -Msg "Used space for $path is $space GB"
 		}
 	} ELSE {
 		IF ($FreeSpace) {
 			$FreeDrive =  ls function:[d-z]: -n | ?{ !(test-path $_) } | random
-			$nwobj = new-object -comobject WScript.Network
-			$status = $nwobj.mapnetworkdrive($FreeDrive,$share)
-			$Driveletter = $FreeDrive.Substring(0,1)
-			$drive = get-psdrive $Driveletter
-			$space = "{0:N2}" -f (($drive.free) / 1GB)
-			$null = $nwobj.removenetworkdrive($FreeDrive)
+			$Driveletter = [string]$FreeDrive.Substring(0,1)
+			$drive = New-PSDrive -Name $Driveletter -Root $Path -Persist -PSProvider FileSystem
+			[int]$space = [math]::Round((($drive.free) / 1GB))
+			$null = Remove-PSDrive -Name $Driveletter
 			Write-Log -Msg "Free space for $path is $space GB"
 		} ELSE {
 			$objFSO = New-Object -com Scripting.FileSystemObject
-			$space = "{0:N2}" -f (($objFSO.GetFolder($path).Size) / 1GB)
+			[int]$space = [math]::Round((($objFSO.GetFolder($path).Size) / 1GB))
 			Write-Log -Msg "Used space for $path is $space GB"
 		}
 	}
